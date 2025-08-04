@@ -1,0 +1,12 @@
+numpy
+scipy
+matplotlib
+pip
+psutil
+pylint
+pyserial
+opencv-python
+torch
+ipykernel
+jupyter
+notebook
