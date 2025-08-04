@@ -10,3 +10,4 @@ torch
 ipykernel
 jupyter
 notebook
+ipywidgets
