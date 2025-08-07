@@ -64,10 +64,19 @@ def LIF(um_0, _I, T):
 
 # Point 1.2
 # TODO: Calculate the membrane potential using the LIF function from Point 1.1
-membrane_potential = LIF(um_0=-65e-3, _I=1e-9, T=0.1) # 1nA current for 0.1 seconds
+membrane_potential = LIF(um_0=-65e-3, _I=2e-9, T=0.1) # 1nA current for 0.1 seconds
 
-plt.figure(figsize=(7,5))
+plt.figure(figsize=(10,5))
 plt.plot(list(range(int(0.1//1e-5))), membrane_potential)
+plt.xlabel('Time (s)')
+plt.ylabel('Membrane Potential (V)')
+plt.title('Membrane Potential of LIF Neuron Model')
+plt.axhline(y=-50e-3, color='r', linestyle='--', label='Threshold (-50 mV)')
+plt.axhline(y=-65e-3, color='g', linestyle='--', label='Resting Potential (-65 mV)')
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.grid()
+plt.tight_layout()
+plt.savefig('membrane_potential.png')
 plt.show()
 
 
@@ -134,4 +143,6 @@ for current in list(np.arange(0,5.5e-9, 0.5e-9)): # Loop through different curre
 plt.plot(list(np.arange(0,5.5e-9, 0.5e-9)), spikes)
 plt.xlabel('Constant current')
 plt.ylabel('Spiking frequency')
+plt.title(f'Spiking Frequency [{spiking_frequency:.2f} Hz] vs Constant Current')
+plt.savefig('spiking_frequency_vs_current.png')
 plt.show()
