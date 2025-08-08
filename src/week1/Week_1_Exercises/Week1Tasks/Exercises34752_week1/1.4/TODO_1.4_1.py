@@ -91,7 +91,7 @@ def LIF(um_0, _I, T, expansion_disable = True):
 
 # Point 1.2
 
-def plot_membrane_potential(membrane_potential, output_file='membrane_potential.png'):
+def plot_membrane_potential(membrane_potential, output_file='membrane_potential.png', spike_indices = None):
     """
     Plot the membrane potential of the LIF neuron model.
     Parameters:
@@ -99,6 +99,8 @@ def plot_membrane_potential(membrane_potential, output_file='membrane_potential.
         Membrane potential time series.
     """
     plt.figure(figsize=(10,5))
+    if spike_indices:
+        plt.scatter(spike_indices, membrane_potential[spike_indices], color='red', label='Spikes', s=50, marker='o')
     plt.plot(list(range(int(0.1//1e-5))), membrane_potential)
     plt.xlabel('Time (s)')
     plt.ylabel('Membrane Potential (V)')
@@ -108,7 +110,7 @@ def plot_membrane_potential(membrane_potential, output_file='membrane_potential.
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     plt.grid()
     plt.tight_layout()
-    plt.savefig('membrane_potential.png')
+    plt.savefig(output_file)
     plt.show()
 
 # TODO: Calculate the membrane potential using the LIF function from Point 1.1
@@ -174,7 +176,7 @@ spike_indices = find_spikes(membrane_potential)
 print("Spike indices:", spike_indices)
 spiking_frequency = calculate_spiking_frequency(spike_indices, delta_t=1e-5)
 print("Spiking frequency (Hz):", spiking_frequency)
-plot_membrane_potential(membrane_potential)
+plot_membrane_potential(membrane_potential, spike_indices= spike_indices, output_file='membrane_potential_classic.png')
 
 
 membrane_potential = LIF(um_0=-65e-3, _I=2e-9, T=0.1, expansion_disable=False) # 1nA current for 0.1 seconds
@@ -182,7 +184,7 @@ spike_indices = find_spikes(membrane_potential)
 print("Spike indices:", spike_indices)
 spiking_frequency = calculate_spiking_frequency(spike_indices, delta_t=1e-5)
 print("Spiking frequency (Hz):", spiking_frequency)
-plot_membrane_potential(membrane_potential, output_file='membrane_potential_refraction.png')
+plot_membrane_potential(membrane_potential, output_file='membrane_potential_refraction.png', spike_indices= spike_indices)
 
 # membrane_potential2 = LIF(TODO)
 #plt.figure(figsize=(7,5))
@@ -201,7 +203,7 @@ step_size = 0.5e-9/4
 indices = np.arange(start, end, step_size)
 
 for current in indices: # Loop through different current values
-    membrane_potential = LIF(um_0=-65e-3, _I=current, T=0.1) # 1nA current for 0.1 seconds
+    membrane_potential = LIF(um_0=-65e-3, _I=current, T=0.1, expansion_disable=False) # 1nA current for 0.1 seconds
     spike_indices = find_spikes(membrane_potential)
     spiking_frequency = calculate_spiking_frequency(spike_indices, delta_t=1e-5)
     spikes.append(spiking_frequency)

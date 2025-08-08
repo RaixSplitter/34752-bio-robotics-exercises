@@ -19,7 +19,7 @@ POTASSIUM_CHANNEL_CLOSE_OFFSET = -25e-4  # Offset for potassium channel close
 
 #region Parameters
 DT = 1e-5
-T = 0.1  # Total time in seconds
+T = 0.2  # Total time in seconds
 _I = 3e-9  # Current in Amperes
 Um_0 = -65e-3  # Initial membrane potential in volts
 #endregion
@@ -89,7 +89,7 @@ class Neuron:
         """
         self.time += DT
     
-    def LIF(self) -> np.ndarray:
+    def LIF(self, current_I) -> np.ndarray:
         #region initialization
         um_t = np.zeros(int(T // DT))
         um_t[0] = Um_0 #Set initial membrane potential
@@ -106,7 +106,7 @@ class Neuron:
 
                 # During the refractory period, the membrane potential is resting
                 if um_t[idx-1] < U_REST:
-                    um_t[idx] = min(um_t[idx-1] + dum_dt(um_t[idx-1], _I/4) * DT, U_REST)
+                    um_t[idx] = min(um_t[idx-1] + dum_dt(um_t[idx-1], current_I/4) * DT, U_REST)
                 else:
                     um_t[idx] = um_t[idx-1]
                 
@@ -119,7 +119,7 @@ class Neuron:
                 #region State Ready
                 
                 #Slowly increase membrane potential
-                um_t[idx] = um_t[idx-1] + dum_dt(um_t[idx-1], _I) * DT
+                um_t[idx] = um_t[idx-1] + dum_dt(um_t[idx-1], current_I) * DT
                 
                 # Check for spike condition
                 if um_t[idx] >= U_THRESH:
@@ -181,6 +181,8 @@ class Neuron:
             NeuronState.REFRACTORY: 'green'
         }
 
+        plt.scatter(time_points[self.find_spikes(membrane_potential)], membrane_potential[self.find_spikes(membrane_potential)], color='magenta', marker='o', label='Spikes')
+
         # Plot membrane potential, changing color based on state
         for i in range(len(states) - 1):
             plt.plot(time_points[i:i+2], membrane_potential[i:i+2], color=state_colors.get(states[i], 'black'))
@@ -203,6 +205,23 @@ class Neuron:
             plt.savefig(output_file)
         plt.show()
 
+    def plot_spiking_frequency(self, spiking_frequencies: list, output_file: str = 'spiking_frequency.png'):
+        """
+        Plot the spiking frequency over a range of input currents.
+        Parameters:
+        spiking_frequencies : list
+            List of spiking frequencies for different input currents.
+        """
+        plt.figure(figsize=(10,5))
+        plt.plot(spiking_frequencies, marker='o')
+        plt.xlabel('Input Current (A)')
+        plt.ylabel('Spiking Frequency (Hz)')
+        plt.title('Spiking Frequency vs Input Current')
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(output_file)
+        plt.show()
+
         
     
     def simulate(self, T: float, _I: float) -> np.ndarray:
@@ -210,12 +229,22 @@ class Neuron:
         Simulates the neuron over a given time period with a constant input current.
         """
         
-        membrane_potential, states = self.LIF()
+        membrane_potential, states = self.LIF(current_I=_I)
         spike_indices = self.find_spikes(membrane_potential)
         spiking_frequency = self.calculate_spiking_frequency(spike_indices, delta_t=DT)
         print("Spiking frequency (Hz):", spiking_frequency)
-        self.plot_membrane_potential(membrane_potential, spiking_frequency=spiking_frequency, states=states)
+        # self.plot_membrane_potential(membrane_potential, spiking_frequency=spiking_frequency, states=states, output_file='membrane_potential.png')
 
+        spike_frequencies = []
+        for current in np.arange(0, 10e-9, 1e-9):  # Loop through different current values
+            membrane_potential, states = self.LIF(current_I=current)
+            spike_indices = self.find_spikes(membrane_potential)
+            spiking_frequency = self.calculate_spiking_frequency(spike_indices, delta_t=DT)
+            print(f"Current: {current:.2e} A, Spiking frequency (Hz): {spiking_frequency:.2f}")
+            spike_frequencies.append(spiking_frequency)
+            # self.plot_membrane_potential(membrane_potential, spiking_frequency=spiking_frequency, states=states, output_file=f'membrane_potential_{current:.2e}.png')
+
+        self.plot_spiking_frequency(spike_frequencies, output_file='spiking_frequency.png')
 Neuron1 = Neuron()
 Neuron1.simulate(T, _I)
         
