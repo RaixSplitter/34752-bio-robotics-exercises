@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Point 1.1
-def LIF(um_0, _I, T):
+def LIF(um_0, _I, T, expansion_disable = True):
     """
     Calculate the membrane potential of a Leaky Integrate-and-Fire (LIF) neuron model.
     Parameters:
@@ -33,29 +33,56 @@ def LIF(um_0, _I, T):
     idx = 0
     refraction_toggle = False
     refraction_last_active = 0
+    
+    spiking_voltage_thresh = +30*1e-3 # Spike voltage in volts
+    spiking_voltage_gain = 5 # Gain for spiking voltage
+    spiking_toggle = False
+    
     while idx < len(um_t):
 
+        delta_u = dum_dt(um_t[idx]) # Calculate the change in membrane potential
+
         #region Refraction Logic
-        if refraction_toggle:
+        if refraction_toggle and not expansion_disable:
             if _T >= refraction_last_active + refraction_period:
                 refraction_toggle = False
-                um_t[idx] = u_rest
+                time_since_last_spike = _T - refraction_last_active
+                if idx + 1 < len(um_t):
+                    um_t[idx+1] = um_t[idx] - (delta_u/2) * delta_t # Update the membrane potential
             else:
-                um_t[idx] = u_rest
+                if idx + 1 < len(um_t):
+                    um_t[idx+1] = um_t[idx] - (delta_u/2) * delta_t # Update the membrane potential
                 idx += 1
                 _T += delta_t
                 continue
         #endregion
 
-        delta_u = dum_dt(um_t[idx]) # Calculate the change in membrane potential
-        if idx + 1 < len(um_t):
+        if spiking_toggle:
+            if idx + 1 < len(um_t):
+                um_t[idx+1] = um_t[idx] + spiking_voltage_gain * delta_t # Update the membrane potential with spike gain
+        
+        elif idx + 1 < len(um_t):
             um_t[idx+1] = um_t[idx] + delta_u * delta_t # Update the membrane potential
         
-        if um_t[idx] > u_thresh: # Check for spike
+        if um_t[idx] > spiking_voltage_thresh and not expansion_disable: # Check for spike peak
+            spiking_toggle = False
             if idx + 1 < len(um_t):
-                um_t[idx+1] = u_rest # Reset the membrane potential after spike
+              um_t[idx+1] = u_rest # Set the membrane potential to spike voltage
             refraction_toggle = True
             refraction_last_active = _T
+        
+        elif um_t[idx] > u_thresh: # Check for spike
+            if not expansion_disable:
+                spiking_toggle = True
+            else:
+                if idx + 1 < len(um_t):
+                    um_t[idx+1] = u_rest # Reset the membrane potential after spike
+            
+            # #region Refraction Funnel
+            # if not expansion_disable:
+            #     refraction_toggle = True
+            #     refraction_last_active = _T
+            # #endregion
         _T += delta_t
         idx += 1
 
@@ -63,21 +90,43 @@ def LIF(um_0, _I, T):
 
 
 # Point 1.2
-# TODO: Calculate the membrane potential using the LIF function from Point 1.1
-membrane_potential = LIF(um_0=-65e-3, _I=2e-9, T=0.1) # 1nA current for 0.1 seconds
 
-plt.figure(figsize=(10,5))
-plt.plot(list(range(int(0.1//1e-5))), membrane_potential)
-plt.xlabel('Time (s)')
-plt.ylabel('Membrane Potential (V)')
-plt.title('Membrane Potential of LIF Neuron Model')
-plt.axhline(y=-50e-3, color='r', linestyle='--', label='Threshold (-50 mV)')
-plt.axhline(y=-65e-3, color='g', linestyle='--', label='Resting Potential (-65 mV)')
-plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-plt.grid()
-plt.tight_layout()
-plt.savefig('membrane_potential.png')
-plt.show()
+def plot_membrane_potential(membrane_potential, output_file='membrane_potential.png'):
+    """
+    Plot the membrane potential of the LIF neuron model.
+    Parameters:
+    membrane_potential : numpy array
+        Membrane potential time series.
+    """
+    plt.figure(figsize=(10,5))
+    plt.plot(list(range(int(0.1//1e-5))), membrane_potential)
+    plt.xlabel('Time (s)')
+    plt.ylabel('Membrane Potential (V)')
+    plt.title(f'Membrane Potential of LIF Neuron Model [{spiking_frequency:.2f} Hz]')
+    plt.axhline(y=-50e-3, color='r', linestyle='--', label='Threshold (-50 mV)')
+    plt.axhline(y=-65e-3, color='g', linestyle='--', label='Resting Potential (-65 mV)')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.grid()
+    plt.tight_layout()
+    plt.savefig('membrane_potential.png')
+    plt.show()
+
+# TODO: Calculate the membrane potential using the LIF function from Point 1.1
+
+
+
+# plt.figure(figsize=(10,5))
+# plt.plot(list(range(int(0.1//1e-5))), membrane_potential)
+# plt.xlabel('Time (s)')
+# plt.ylabel('Membrane Potential (V)')
+# plt.title('Membrane Potential of LIF Neuron Model')
+# plt.axhline(y=-50e-3, color='r', linestyle='--', label='Threshold (-50 mV)')
+# plt.axhline(y=-65e-3, color='g', linestyle='--', label='Resting Potential (-65 mV)')
+# plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+# plt.grid()
+# plt.tight_layout()
+# plt.savefig('membrane_potential.png')
+# plt.show()
 
 
 # Point 1.3
@@ -97,8 +146,7 @@ def find_spikes(um_t):
         if um_t[i-1] < um_t[i] > um_t[i+1]:
             spikes.append(i)
     return spikes
-spike_indices = find_spikes(membrane_potential)
-print("Spike indices:", spike_indices)
+
 # calculate_isi = 
 
 # TODO: Define a function to calculate the spiking frequency of a whole experiment
@@ -120,8 +168,21 @@ def calculate_spiking_frequency(spike_indices, delta_t):
     avg_isi = np.mean(isi)
     return 1.0 / avg_isi if avg_isi > 0 else 0.0
 
+
+membrane_potential = LIF(um_0=-65e-3, _I=2e-9, T=0.1) # 1nA current for 0.1 seconds
+spike_indices = find_spikes(membrane_potential)
+print("Spike indices:", spike_indices)
 spiking_frequency = calculate_spiking_frequency(spike_indices, delta_t=1e-5)
 print("Spiking frequency (Hz):", spiking_frequency)
+plot_membrane_potential(membrane_potential)
+
+
+membrane_potential = LIF(um_0=-65e-3, _I=2e-9, T=0.1, expansion_disable=False) # 1nA current for 0.1 seconds
+spike_indices = find_spikes(membrane_potential)
+print("Spike indices:", spike_indices)
+spiking_frequency = calculate_spiking_frequency(spike_indices, delta_t=1e-5)
+print("Spiking frequency (Hz):", spiking_frequency)
+plot_membrane_potential(membrane_potential, output_file='membrane_potential_refraction.png')
 
 # membrane_potential2 = LIF(TODO)
 #plt.figure(figsize=(7,5))
@@ -134,15 +195,25 @@ print("Spiking frequency (Hz):", spiking_frequency)
 spikes = []
 # # TODO write the code to accumulate the spikes
 
-for current in list(np.arange(0,5.5e-9, 0.5e-9)): # Loop through different current values
+start = 0
+end = 5.5e-9
+step_size = 0.5e-9/4
+indices = np.arange(start, end, step_size)
+
+for current in indices: # Loop through different current values
     membrane_potential = LIF(um_0=-65e-3, _I=current, T=0.1) # 1nA current for 0.1 seconds
     spike_indices = find_spikes(membrane_potential)
     spiking_frequency = calculate_spiking_frequency(spike_indices, delta_t=1e-5)
     spikes.append(spiking_frequency)
 
-plt.plot(list(np.arange(0,5.5e-9, 0.5e-9)), spikes)
+plt.plot(indices, spikes)
+plt.scatter(indices, spikes, color='red', label='Spikes', s=50, marker='o')
+plt.xticks(rotation=45)
+plt.xlim(0, 5.5e-9)
 plt.xlabel('Constant current')
 plt.ylabel('Spiking frequency')
-plt.title(f'Spiking Frequency [{spiking_frequency:.2f} Hz] vs Constant Current')
+plt.title('Spiking Frequency vs Constant Current')
+plt.grid()
+plt.tight_layout()
 plt.savefig('spiking_frequency_vs_current.png')
 plt.show()
