@@ -7,7 +7,7 @@ m = 1
 # Length of the arm
 arm_length = 0.3
 # Inertia
-I = 1/3 * m *(arm_length)**2
+INERTIA = 1/3 * m *(arm_length)**2
 
 # Gravity
 g = 9.81
@@ -89,7 +89,7 @@ for t in tvec:
     total_torque=forward_torque + feedback_torque
 
     # Forward model of arm_dynamics
-    acc_estimated = (total_torque - dampCoeff*vel_estimated ) / I 
+    acc_estimated = (total_torque - dampCoeff*vel_estimated ) / INERTIA 
     vel_estimated = vel_estimated + dt * acc_estimated
     ang_estimated = ang_estimated + dt * vel_estimated
 
@@ -100,7 +100,7 @@ for t in tvec:
         pert = 0
 
     # Plant - forward model of the arm
-    acc = (total_torque - dampCoeff*vel_actual + pert) / I 
+    acc = (total_torque - dampCoeff*vel_actual + pert) / INERTIA 
     vel_actual = vel_actual + dt * acc
     ang_actual = ang_actual + dt * vel_actual
 

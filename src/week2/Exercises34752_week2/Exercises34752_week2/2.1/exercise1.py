@@ -33,7 +33,7 @@ def sim_run(K : float, delay : float, simlen : int = 30, y0 : float = 1, target 
 
     return y
 
-def batch_run(K_values : list, delay_values : list, simlen : int=30, y0 : float=1, target : float=0, show = True) -> dict:
+def batch_run(K_values : list, delay_values : list, simlen : int=30, y0 : float=1, target : float=0, show = True, output : str = "src/week2/Exercises34752_week2/Exercises34752_week2/2.1/2.1.figure.png") -> dict:
     """
     Runs a batch simulation for different control gains and delays.
 
@@ -54,9 +54,9 @@ def batch_run(K_values : list, delay_values : list, simlen : int=30, y0 : float=
             y = sim_run(K, delay, simlen, y0, target)
             results[(K, delay)] = y
 
-    if show:
+    if show or output:
         n_plots = int(np.ceil(np.sqrt(len(delay_values))))
-        fig, ax = plt.subplots(n_plots, n_plots, figsize=(15, 10))
+        fig, ax = plt.subplots(n_plots, n_plots, figsize=(10, 8))
         for i, delay in enumerate(delay_values):
             for j, K in enumerate(K_values):
                 y = results[(K, delay)]
@@ -69,7 +69,16 @@ def batch_run(K_values : list, delay_values : list, simlen : int=30, y0 : float=
             ax[row, col].grid()
             ax[row, col].legend([f'K={K}' for K in K_values])
 
-        plt.show()
+        fig.suptitle('State Trajectories for Different Control Gains and Delays', fontsize=16)
+        plt.tight_layout()
+
+        
+        if output:
+            plt.savefig(output)
+        if show:
+            plt.show()
+
+        
 
 K_VALUES = [0.1, 0.5, 1.0, 2.0]
 DELAY_VALUES = [0, 1, 2, 3]
