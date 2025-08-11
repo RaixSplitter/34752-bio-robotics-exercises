@@ -7,7 +7,7 @@ from SimFunctions import SimulationFunctions
 
 ## Parameters
 NOISE = 0.0
-DELAY = 0
+DELAY = 1
 # Movement duration
 T = 0.6
 # Time step
@@ -15,9 +15,9 @@ dt = 0.01
 # Simulation duration
 L = 6.0
 # Proportional parameter
-kp = 200.0
+kp = 400.0
 # Derivative parameter
-kd = 11.0
+kd = 11
 # Upper arm length
 le1 = 0.3
 # Lower arm length
