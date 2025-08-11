@@ -6,8 +6,10 @@ import matplotlib.animation as animation
 from SimFunctions import SimulationFunctions
 
 ## Parameters
-NOISE = 0.0
-DELAY = 1
+NOISE = 0
+DELAY = 3
+ANIMATION_ENABLE = False
+
 # Movement duration
 T = 0.6
 # Time step
@@ -15,7 +17,7 @@ dt = 0.01
 # Simulation duration
 L = 6.0
 # Proportional parameter
-kp = 400.0
+kp = 400.0 #400
 # Derivative parameter
 kd = 11
 # Upper arm length
@@ -208,8 +210,10 @@ if animation:
         ax.set_ylim([-0.5, 0.5])
         ax.set_xlabel("Meters")
         ax.set_ylabel("Meters")
+        ax.set_title(f"Final Wrist Positions, Noise: {NOISE}, Delay: {DELAY}")
 
-        plt.pause(0.001)
+        if ANIMATION_ENABLE:
+            plt.pause(0.001)
 
 elapsed = time.time() - Time
 print("Time elapsed:", elapsed)
@@ -218,8 +222,11 @@ ax.plot(wrist_pos_rec[:-1, 0], wrist_pos_rec[:-1, 1], "--", color="red", linewid
 ax.scatter(
     np.array(final_wrist_pos)[:, 0], np.array(final_wrist_pos)[:, 1], color="green"
 )
-plt.show()
-
+ax.set_title(f"Final Wrist Positions, Noise: {NOISE}, Delay: {DELAY}")
+plt.savefig(f"src/week2/Exercises34752_week2/Exercises34752_week2/2.2/2.2Python_version/FWP_N{NOISE}D{DELAY}KP{kp}KD{kd}.png")
+if ANIMATION_ENABLE:
+    plt.show()
+plt.close()
 plt.subplot(3, 1, 1)
 [A, B] = plt.plot(
     np.arange(0, L - dt, dt),
@@ -250,5 +257,8 @@ plt.subplot(3, 1, 3)
 plt.legend([A, B], ["Shoulder", "Elbow"])
 plt.xlabel("time (ms)")
 plt.ylabel("jerk")
+plt.suptitle(f"Kinetics, Noise: {NOISE}, Delay: {DELAY}")
+plt.savefig(f"src/week2/Exercises34752_week2/Exercises34752_week2/2.2/2.2Python_version/KINETICS_N{NOISE}D{DELAY}KP{kp}KD{kd}.png")
 plt.tight_layout()
-plt.show()
+if ANIMATION_ENABLE:
+    plt.show()
