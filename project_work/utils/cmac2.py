@@ -1,0 +1,90 @@
+import numpy as np
+from tqdm import tqdm
+
+def GaussianBasisFunction(x, mu, sigma, n_dim=1):
+    exponent = 0
+    for i in range(n_dim):
+        exponent += (x[i]-mu[i])**2/(sigma[i]**2)
+    return np.exp(-exponent)
+
+class CMAC:
+    def __init__(self, n_rfs, xmin, xmax, n_dim=1, beta=1e-3):
+        """ Initialize the basis function parameters and output weights """
+        self.n_rfs = n_rfs
+        self.n_dim = n_dim
+
+        self.mu = np.zeros((2,self.n_dim,self.n_rfs))
+        self.sigma = np.zeros((2,self.n_dim))
+        crossval = 0.8 # has to be between 0 and 1 !
+
+        for k in range(2):
+            for d in range(self.n_dim):
+                self.sigma[k,d] = 0.5/np.sqrt(-np.log(crossval)) * (xmax[k] - xmin[k])/(self.n_rfs-1) # RFs cross at phi = crossval
+                self.mu[k,d] = np.linspace(xmin[k], xmax[k], self.n_rfs)
+        
+        self.w = np.random.normal(loc=0.0, scale=0.2, size=(self.n_dim,self.n_rfs, self.n_rfs))
+
+        self.beta = beta
+
+        self.B = None
+        self.y = None
+
+    def predict(self, x):
+        """ Predict yhat given x
+            Saves activations `B` for later weight update
+        """
+        phi = np.zeros((2, self.n_dim, self.n_rfs))
+        for k in range(2):
+            phi[k] = GaussianBasisFunction(x[k], self.mu[k], self.sigma[k], self.n_dim) # for i in phi_ki at the same time
+
+        self.B = np.zeros((self.n_dim,self.n_rfs, self.n_rfs))
+        for dim in range(self.n_dim):
+            for i in range(self.n_rfs):
+                for j in range(self.n_rfs):
+                    self.B[dim,i,j] = phi[0][dim][i] * phi[1][dim][j]
+
+        yhat = np.dot(self.w.ravel(), self.B.ravel()) # Element-wise multiplication and summing of all elements
+
+        return yhat
+
+    def learn(self, e):
+        """ 
+        Update the weights using the covariance learning rule
+        For all weights at once.
+        """
+        for i in range(self.n_dim):
+            self.w[i] += self.beta*e[i]*self.B[i]
+
+
+if __name__ == '__main__':
+    n_rfs = 11
+
+    xmin = [0, 0]
+    xmax = [1, 1]
+
+    c = CMAC(n_rfs, xmin, xmax, 1e-2)
+    # print(c.w.shape)
+
+    for _ in tqdm(range(1000)):
+        e_vec = []
+        for x1 in np.linspace(0, 1, 11):
+            for x2 in np.linspace(0, 1, 11):
+                x = [x1, x2]
+
+                yhat = c.predict(x)
+
+                yd = np.arctan2(x[0], x[1])
+
+                e = yd - yhat
+
+                c.learn(e)
+                e_vec.append(e**2)
+
+        # print(np.mean(e_vec))
+
+    # Test values
+    x = [0.5, 0.5]
+    print(c.predict(x), np.arctan2(x[0], x[1]))
+
+    x = [0.2, 0.5]
+    print(c.predict(x), np.arctan2(x[0], x[1]))
