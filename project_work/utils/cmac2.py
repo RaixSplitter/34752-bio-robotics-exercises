@@ -4,7 +4,7 @@ from tqdm import tqdm
 def GaussianBasisFunction(x, mu, sigma, n_dim=1):
     exponent = 0
     for i in range(n_dim):
-        exponent += (x[i]-mu[i])**2/(sigma[i]**2)
+        exponent += (x[i]-mu)**2/(sigma**2)
     return np.exp(-exponent)
 
 class CMAC:
@@ -13,16 +13,15 @@ class CMAC:
         self.n_rfs = n_rfs
         self.n_dim = n_dim
 
-        self.mu = np.zeros((2,self.n_dim,self.n_rfs))
-        self.sigma = np.zeros((2,self.n_dim))
+        self.mu = np.zeros((2,self.n_rfs))
+        self.sigma = np.zeros(2)
         crossval = 0.8 # has to be between 0 and 1 !
 
         for k in range(2):
-            for d in range(self.n_dim):
-                self.sigma[k,d] = 0.5/np.sqrt(-np.log(crossval)) * (xmax[k] - xmin[k])/(self.n_rfs-1) # RFs cross at phi = crossval
-                self.mu[k,d] = np.linspace(xmin[k], xmax[k], self.n_rfs)
+            self.sigma[k] = 0.5/np.sqrt(-np.log(crossval)) * (xmax[k] - xmin[k])/(self.n_rfs-1) # RFs cross at phi = crossval
+            self.mu[k] = np.linspace(xmin[k], xmax[k], self.n_rfs)
         
-        self.w = np.random.normal(loc=0.0, scale=0.2, size=(self.n_dim,self.n_rfs, self.n_rfs))
+        self.w = np.random.normal(loc=0.0, scale=0.2, size=(self.n_rfs, self.n_rfs))
 
         self.beta = beta
 
@@ -33,15 +32,14 @@ class CMAC:
         """ Predict yhat given x
             Saves activations `B` for later weight update
         """
-        phi = np.zeros((2, self.n_dim, self.n_rfs))
+        phi = np.zeros((2, self.n_rfs))
         for k in range(2):
             phi[k] = GaussianBasisFunction(x[k], self.mu[k], self.sigma[k], self.n_dim) # for i in phi_ki at the same time
 
-        self.B = np.zeros((self.n_dim,self.n_rfs, self.n_rfs))
-        for dim in range(self.n_dim):
-            for i in range(self.n_rfs):
-                for j in range(self.n_rfs):
-                    self.B[dim,i,j] = phi[0][dim][i] * phi[1][dim][j]
+        self.B = np.zeros((self.n_rfs, self.n_rfs))
+        for i in range(self.n_rfs):
+            for j in range(self.n_rfs):
+                self.B[i,j] = phi[0][i] * phi[1][j]
 
         yhat = np.dot(self.w.ravel(), self.B.ravel()) # Element-wise multiplication and summing of all elements
 
@@ -53,7 +51,7 @@ class CMAC:
         For all weights at once.
         """
         for i in range(self.n_dim):
-            self.w[i] += self.beta*e[i]*self.B[i]
+            self.w += self.beta*e[i]*self.B
 
 
 if __name__ == '__main__':
