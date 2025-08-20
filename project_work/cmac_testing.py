@@ -12,6 +12,8 @@ from FableAPI.fable_init import api
 
 from tqdm import tqdm
 
+enable_point_bounding = True
+
 ## Initialize simulation
 Ts = 1e-2
 T_end = 1 # in one trial
@@ -70,6 +72,18 @@ def initialize_robot(module=None):
 
     return module
 
+vlen = lambda xy: (xy[0]**2 + xy[1]**2)**(1/2)
+def point_bounding(xy):
+    # top    [322, 255]
+    # left   [153, 426]
+    # center [322, 426]
+    # radius [169, 171] ~ 170
+    pc = torch.tensor([322, 426]).float()
+    xyc = xy - pc
+    if vlen(xyc) > 170:
+        xy = xyc/vlen(xyc)*170 + pc
+    return xy
+
 # dummy class for targets
 class CoordinateStore:
     def __init__(self):
@@ -95,8 +109,8 @@ initialize_camera(cam)
 module = initialize_robot()
 
 # Set move speed
-speedX = 25
-speedY = 25
+speedX = 35
+speedY = 35
 api.setSpeed(speedX, speedY, module)
 
 # Set accuracy
@@ -124,6 +138,7 @@ for i in range(n_steps*n_trials):
         frame = ct.capture_image(cam)
         # frame = cv2.flip(frame, 1)
         coordinateStore1.random_point()
+        
         cv2.circle(frame,coordinateStore1.point,3,(255,0,0),-1)
         cv2.imshow("live_cam", frame)
         k = cv2.waitKey(10)
@@ -138,19 +153,20 @@ for i in range(n_steps*n_trials):
             if k == 32: # space bar
                 break
         elif wait_for_update: # wait for robot to move to position
-            if (datetime.now()-timer).seconds >= 2:
+            if not (api.getMoving(0,module) or api.getMoving(1,module)):
+                print("Done")
                 frame = ct.capture_image(cam)
                 new_theta = ct.locate(frame) # (x, y)
                 if new_theta[0] == None:
                     print("Brick not in view")
                     break
                 new_theta -= data_mean
-                error = np.sum((new_theta - theta_ref)**2) # calc error (dist)
+                error = np.sum((new_theta - theta_ref)**2)**(1/2) # calc error (dist)
                 # print(c.w[0,:])
                 c.learn(tau_MLP)
                 # print(c.w[0,:])
                 wait_for_confirm = True
-        
+
         elif coordinateStore1.new: # point is available
             # Measure
             frame = ct.capture_image(cam)
@@ -159,7 +175,8 @@ for i in range(n_steps*n_trials):
                 print("Brick not in view")
                 break
             theta_ref  = np.array(coordinateStore1.point, dtype=np.float64)
-            
+            if enable_point_bounding:
+                theta_ref = point_bounding(theta_ref)
             theta     -= data_mean
             theta_ref -= data_mean
             
@@ -171,7 +188,7 @@ for i in range(n_steps*n_trials):
             # cmac
             tau_cmac = c.predict([theta, theta_ref])
             tau = tau_MLP + tau_cmac
-            print("Same as previous", (tau != tau_MLP).any())
+            print("Same as previous", (tau == tau_MLP).all())
             
             # Iterate simulation dynamics
             # plant.step(tau)

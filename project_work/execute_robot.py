@@ -1,21 +1,24 @@
 import numpy as np
 import torch
-import utils.torch_model as torch_model
 import cv2
+import utils.torch_model as torch_model
 import utils.camera_tools as ct
+import hand_tracker as ht
 from FableAPI.fable_init import api
 from datetime import datetime
 
-test_second = True
+
+enable_point_bounding = True
 
 cam = ct.prepare_camera()
 print(cam.isOpened())  # False
 i = 0
 
-data = np.loadtxt("data.csv", delimiter=",")
-end_pos = data[:,2:].T
-x = torch.from_numpy(end_pos.T).float()
-data_mean = x.mean(axis=0)
+# data = np.loadtxt("data.csv", delimiter=",")
+# end_pos = data[:,2:].T
+# x = torch.from_numpy(end_pos.T).float()
+# data_mean = x.mean(axis=0)
+data_mean = torch.tensor([284.9700, 318.9700]).float()
 
 # Initialize the camera first.. waits for it to detect the green block
 def initialize_camera(cam):
@@ -41,6 +44,18 @@ def initialize_robot(module=None):
 
     return module
 
+vlen = lambda xy: (xy[0]**2 + xy[1]**2)**(1/2)
+def point_bounding(xy):
+    # top    [322, 255]
+    # left   [153, 426]
+    # center [322, 426]
+    # radius [169, 171] ~ 170
+    pc = torch.tensor([322, 426]).float()
+    xyc = xy - pc
+    if vlen(xyc) > 170:
+        xy = xyc/vlen(xyc)*170 + pc
+    return xy
+
 initialize_camera(cam)
 module = initialize_robot()
 
@@ -55,72 +70,40 @@ accurateY = 'HIGH'
 api.setAccurate(accurateX, accurateY, module)
 
 # TODO Load the trained model
-model1 = torch_model.MLPNet(2, 24, 2)
-model1.load_state_dict(torch.load('650_trained_model.pth'))
-if test_second:
-    model2 = torch_model.MLPNet(2, 24, 2)
-    model2.load_state_dict(torch.load('active_model_9.pth'))
+model = torch_model.MLPNet(2, 24, 2)
+model.load_state_dict(torch.load('280_trained_model.pth'))
 
-# dummy class for targets
-class CoordinateStore:
-    def __init__(self):
-        self.point = None
-        self.new = False
-
-    def select_point(self,event,x,y,flags,param):
-        if event == cv2.EVENT_LBUTTONDBLCLK:
-            cv2.circle(frame,(x,y),3,(255,0,0),-1)
-            self.point = [x,y]
-            self.new = True
-
-
-# Instantiate class
-coordinateStore1 = CoordinateStore()
+# Instantiate tracker
+hand_landmarker = ht.landmarker_and_result(1)
 
 # as alternative you can set prior targets
 
-cv2.namedWindow("test")
-cv2.setMouseCallback('test', coordinateStore1.select_point)
-set_time = 0
-
+cv2.namedWindow("hand tracker")
+frame = ct.capture_image(cam)
+H,W = frame.shape[:2]
 while True:
-
     frame = ct.capture_image(cam)
+    # x, y = ct.locate(frame)
 
-    x, y = ct.locate(frame)
-
-    cv2.imshow("test", frame)
-    k = cv2.waitKey(100)
+    cv2.imshow("hand tracker", frame)
+    k = cv2.waitKey(20)
     if k == 27:
         break
-
-    # print(coordinateStore1.point)
-    # print(coordinateStore1.new)
+    hand_landmarker.detect_async(frame)
+    xc,yc,*_ = hand_landmarker.get_points()[0]
+    
     # get the prediction
-    if coordinateStore1.new:
-        inp = torch.tensor([coordinateStore1.point]).float()
+    if xc != None and yc != None:
+        inp = torch.tensor([xc*W,yc*H]).float()
+        if enable_point_bounding:
+            inp = point_bounding(inp)
         inp -= data_mean
-        # shows the non-active learning model prediction
+        # MLP
         with torch.no_grad():
-            outp = model1(inp)
-            t = outp.numpy()[0]  
+            outp = model(inp)
+            t = outp.numpy()  
             print(t)
-        api.setPos(t[0], t[1], module)
-        if not test_second:
-            continue
-        set_time = datetime.now()
-        # shows the active learning model prediction
-        while (datetime.now() - set_time).total_seconds() < 3.0:
-            frame = ct.capture_image(cam)
-            ct.locate(frame)
-            cv2.imshow("test", frame)
-            k = cv2.waitKey(100)
-        with torch.no_grad():
-            outp = model2(inp)
-            t = outp.numpy()[0]
-            print(t)
-        api.setPos(t[0], t[1], module)
-        coordinateStore1.new = False
+        api.setPos(abs(t[0]), t[1], module)
 
 print('Terminating')
 api.terminate()
