@@ -2,12 +2,13 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-import torch_model
+import TODO_torch_model as torch_model
 
 from tqdm import tqdm # progress bar
 
 # Load data
-data = pickle.load( open( "training_data.p", "rb" ) )
+# data = pickle.load( open( "training_data.p", "rb" ) )
+data = np.loadtxt("data.csv", delimiter=",")
 
 print(data.shape)
 angles = data[:,:2].T
@@ -22,6 +23,7 @@ if torch.cuda.is_available():
 
 x = torch.from_numpy(end_pos.T).float()
 y = torch.from_numpy(angles.T).float()
+x -= x.mean(axis=0)
 # TODO split the training set and test set
 # Eventually normalize the data
 
@@ -29,16 +31,17 @@ if device == 'cuda':
     x = x.cuda()
     y = y.cuda()
 
+
 # Define neural network - an example
-model = torch_model.MLPNet(2, 16, 2)
+model = torch_model.MLPNet(2, 24, 2)
 # model = torch_model.Net(n_feature=2, n_hidden1=h, n_hidden2=h, n_output=2)
 #print(model)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
 loss_func = torch.nn.MSELoss()
-num_epochs = 500000
+num_epochs = 50000
 
 #h = 16
-#g = 0.999
+g = 0.999
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=g)
 
 l_vec = np.zeros(num_epochs)

@@ -1,13 +1,21 @@
 import numpy as np
 import torch
-import torch_model
+import TODO_torch_model as torch_model
 import cv2
 import camera_tools as ct
 from FableAPI.fable_init import api
+from datetime import datetime
+
+test_second = True
 
 cam = ct.prepare_camera()
 print(cam.isOpened())  # False
 i = 0
+
+data = np.loadtxt("data.csv", delimiter=",")
+end_pos = data[:,2:].T
+x = torch.from_numpy(end_pos.T).float()
+data_mean = x.mean(axis=0)
 
 # Initialize the camera first.. waits for it to detect the green block
 def initialize_camera(cam):
@@ -47,8 +55,11 @@ accurateY = 'HIGH'
 api.setAccurate(accurateX, accurateY, module)
 
 # TODO Load the trained model
-model = torch_model.MLPNet(2, 16, 2)
-#model.load_state_dict(torch.load('model_file_path'))
+model1 = torch_model.MLPNet(2, 24, 2)
+model1.load_state_dict(torch.load('650_trained_model.pth'))
+if test_second:
+    model2 = torch_model.MLPNet(2, 24, 2)
+    model2.load_state_dict(torch.load('active_model_9.pth'))
 
 # dummy class for targets
 class CoordinateStore:
@@ -57,10 +68,10 @@ class CoordinateStore:
         self.new = False
 
     def select_point(self,event,x,y,flags,param):
-            if event == cv2.EVENT_LBUTTONDBLCLK:
-                cv2.circle(frame,(x,y),3,(255,0,0),-1)
-                self.point = [x,y]
-                self.new = True
+        if event == cv2.EVENT_LBUTTONDBLCLK:
+            cv2.circle(frame,(x,y),3,(255,0,0),-1)
+            self.point = [x,y]
+            self.new = True
 
 
 # Instantiate class
@@ -70,6 +81,7 @@ coordinateStore1 = CoordinateStore()
 
 cv2.namedWindow("test")
 cv2.setMouseCallback('test', coordinateStore1.select_point)
+set_time = 0
 
 while True:
 
@@ -78,16 +90,33 @@ while True:
     x, y = ct.locate(frame)
 
     cv2.imshow("test", frame)
-    k = cv2.waitKey(500)
+    k = cv2.waitKey(100)
     if k == 27:
         break
 
-    print(coordinateStore1.point)
+    # print(coordinateStore1.point)
+    # print(coordinateStore1.new)
     # get the prediction
     if coordinateStore1.new:
+        inp = torch.tensor([coordinateStore1.point]).float()
+        inp -= data_mean
+        # shows the non-active learning model prediction
         with torch.no_grad():
-            inp = torch.tensor([coordinateStore1.point]).float()
-            outp = model(inp)
+            outp = model1(inp)
+            t = outp.numpy()[0]  
+            print(t)
+        api.setPos(t[0], t[1], module)
+        if not test_second:
+            continue
+        set_time = datetime.now()
+        # shows the active learning model prediction
+        while (datetime.now() - set_time).total_seconds() < 3.0:
+            frame = ct.capture_image(cam)
+            ct.locate(frame)
+            cv2.imshow("test", frame)
+            k = cv2.waitKey(100)
+        with torch.no_grad():
+            outp = model2(inp)
             t = outp.numpy()[0]
             print(t)
         api.setPos(t[0], t[1], module)

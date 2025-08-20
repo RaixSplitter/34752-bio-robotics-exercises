@@ -50,8 +50,8 @@ module = initialize_robot()
 n_t1 = 10
 n_t2 = 10
 
-t1 = np.tile(np.linspace(-85, 86, n_t1), n_t2) # repeat the vector
-t2 = np.repeat(np.linspace(0, 86, n_t2), n_t1) # repeat each element
+t1 = np.repeat(np.linspace(-85, 0, n_t1), n_t2) # repeat the vector
+t2 = np.tile(np.linspace(-85, 86, n_t2), n_t1) # repeat each element
 thetas = np.stack((t1,t2))
 
 num_datapoints = n_t1*n_t2
@@ -64,36 +64,37 @@ class TestClass:
         self.num_datapoints = num_datapoints
         self.data = np.zeros( (num_datapoints, 4) )
         self.time_of_move = datetime.datetime.now()
+        self.timer = [0.7,1.6]
 
     def go(self):
-        if self.i >= num_datapoints:
-            return True
-        
-        img = ct.capture_image(cam)
-        x, y = ct.locate(img)
-        if (datetime.datetime.now() - self.time_of_move).total_seconds() > 2.0:
-            if x is not None:
-                print(x, y)
-                tmeas1 = api.getPos(0,module)
-                tmeas2 = api.getPos(1,module)
-                self.data[i,:] = np.array([tmeas1, tmeas2, x, y])
-                self.i += 1
+        while True:
+            if self.i >= num_datapoints:
+                np.savetxt("data.csv", self.data, delimiter=",")
+                return True
+            
+            img = ct.capture_image(cam)
+            x, y = ct.locate(img)
+            if (datetime.datetime.now() - self.time_of_move).total_seconds() > self.timer[self.i%10==0]:
+                if x is not None:
+                    tmeas1 = api.getPos(0,module)
+                    tmeas2 = api.getPos(1,module)
+                    self.data[self.i,:] = np.array([tmeas1, tmeas2, x, y])
+                    self.i += 1
+                    print(self.i,x, y)
 
-                # set new pos
-                if self.i != num_datapoints:
-                    api.setPos(thetas[0,self.i], thetas[1,self.i], module)
-                    self.time_of_move = datetime.datetime.now()
-            else:
-                print("Obj not found")
-                
-        return False
+                    # set new pos
+                    if self.i != num_datapoints:
+                        api.setPos(thetas[0,self.i], thetas[1,self.i], module)
+                        self.time_of_move = datetime.datetime.now()
+                else:
+                    print("Obj not found")
+                    return False
 
 test = TestClass(num_datapoints)
-test.go()    
-
+test.go()
 
 print('Terminating')
 api.terminate()
 
-# TODO SAVE .csv file with robot pos data and target location x,y
 
+# TODO SAVE .csv file with robot pos data and target location x,y
