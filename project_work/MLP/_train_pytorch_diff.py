@@ -8,7 +8,7 @@ from tqdm import tqdm # progress bar
 
 # Load data
 # data = pickle.load( open( "training_data.p", "rb" ) )
-data = np.loadtxt("data_diff.csv", delimiter=",")
+data = np.loadtxt("data_diff_simons.csv", delimiter=",")
 
 print(data.shape)
 angles  = data[:, :2].T
@@ -27,7 +27,8 @@ y = torch.from_numpy(angles.T).float()
 # Eventually normalize the data
 print("Mean",x.mean(axis=0))
 print("Std",x.std(axis=0))
-x = (x-x.mean(axis=0))/x.std(axis=0)
+# x = (x-x.mean(axis=0))/x.std(axis=0)
+x = (x + 750.)/torch.tensor([1500.])
 
 
 if device == 'cuda':
@@ -36,12 +37,12 @@ if device == 'cuda':
 
 
 # Define neural network - an example
-model = torch_model.MLPNet(2, 16, 16, 2)
+model = torch_model.MLPNet(2, 24, 16, 8, 2)
 # model = torch_model.Net(n_feature=2, n_hidden1=h, n_hidden2=h, n_output=2)
 #print(model)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 loss_func = torch.nn.MSELoss()
-num_epochs = 50000
+num_epochs = 20_000
 
 #h = 16
 g = 0.999

@@ -35,16 +35,13 @@ theta_ref_vec = np.zeros(n_steps*n_trials)
 Kp = 30
 Kv = 0
 
-## Define parameters for periodic reference trajectory
-xmin = np.array([150, 350]) - data_mean
-xmax = np.array([490, 430]) - data_mean
 
 ## CMAC initialization
 n_rfs = 15
 # c = CMAC(n_rfs, xmin, xmax, 2, .1)
 Ts = 1e-3
-n_inputs = 1
-n_outputs = 1
+n_inputs = 2
+n_outputs = 2
 n_bases = 4
 beta = .00001
 c = AdaptiveFilterCerebellum(Ts, n_inputs, n_outputs, n_bases, beta)
@@ -90,8 +87,11 @@ class CoordinateStore:
 
     def random_point(self):
         if not self.new:
-            x = np.random.randint(150,490)
-            y = np.random.randint(350,430)
+            # x = np.random.randint(150,490) ## Sonnys
+            # y = np.random.randint(350,430)
+            x = np.random.randint(380,820) ## Simons
+            y = np.random.randint(250,620)
+            
             self.point = [x,y]
             self.new = True
 
@@ -111,8 +111,8 @@ accurateY = 'HIGH'
 api.setAccurate(accurateX, accurateY, module)
 
 # Load the trained model
-model = torch_model.MLPNet(2, 24, 2)
-model.load_state_dict(torch.load('650_trained_model.pth', weights_only=True))
+model = torch_model.MLPNet(2, 24, 16, 8, 2)
+model.load_state_dict(torch.load('trained_model_diff.pth', weights_only=True))
 
 # Instantiate class
 coordinateStore1 = CoordinateStore()
@@ -123,9 +123,12 @@ timer = 0
 wait_for_update     = False
 wait_for_confirm    = False
 active_run          = True
-tau_MLP             = None
+error               = np.array([0,0])
+
 ## Simulation loop
 for i in range(n_steps*n_trials):
+    # new_theta           = None
+    tau_MLP             = [None,None]
     while active_run:
         frame = ct.capture_image(cam)
         # frame = cv2.flip(frame, 1)
@@ -142,6 +145,7 @@ for i in range(n_steps*n_trials):
         
         if wait_for_confirm:
             if k == 32: # space bar
+                theta_new = None
                 break
         elif wait_for_update: # wait for robot to move to position
             if (datetime.now()-timer).seconds >= 2:
@@ -150,13 +154,17 @@ for i in range(n_steps*n_trials):
                 if new_theta[0] == None:
                     print("Brick not in view")
                     break
-                new_theta -= data_mean
-                error = np.abs(new_theta - theta_ref) # calc error (dist)
+                # new_theta = (np.array(new_theta) + 750)/1500.
+                error       = (( theta_ref - new_theta)+ 750)/1500. # calc error (dist)
                 # print(c.w[0,:])
                 # c.learn(tau_MLP)
-                C_t = c.step(tau_MLP, error)
                 # print(c.w[0,:])
-                wait_for_confirm = True
+                # wait_for_confirm = True
+                wait_for_update = False
+                if np.linalg.norm(error) <= 0.61:
+                    print(error)
+                    break
+
         
         elif coordinateStore1.new: # point is available
             # Measure
@@ -167,31 +175,37 @@ for i in range(n_steps*n_trials):
                 break
             theta_ref  = np.array(coordinateStore1.point, dtype=np.float64)
             
-            theta     -= data_mean
-            theta_ref -= data_mean
-
-            error       = np.abs(new_theta - theta_ref) # calc error (dist)
-            if tau_MLP!= None:
-                C_t         = c.step(tau_MLP, theta_ref)
-                # error_fb    = error + C_t
+            # theta     = (np.array(theta) + 750.)/1500.
+            # theta_ref = (np.array(theta_ref) + 750.)/1500.
+            error       = (( theta_ref - theta)+750)/1500 # calc error (dist)       
+            if tau_MLP[0] != None:
+                C_t         = c.step(tau_MLP, error)
+                error    += C_t
             # MLP
             with torch.no_grad():
                 # tmeas1 = api.getPos(0,module)
                 # tmeas2 = api.getPos(1,module)
-                outp = model(torch.from_numpy(theta_ref).float())
+                print(error)
+                outp = model(torch.tensor(error).float())
                 tau_MLP = outp.numpy()
+                
                 print("MLP:",tau_MLP)
+                print("Current position: ", theta)
+                print("Reference: ", theta_ref)
             tau = tau_MLP
             
             # Iterate simulation dynamics
             # plant.step(tau)
-            api.setPos(tau[0], tau[1], module)
+            t0 = api.getPos(0,module)
+            t1 = api.getPos(1,module)
+            api.setPos(t0+tau[0], t1+tau[1], module)
             
             # log
             # theta_vec[i] = plant.theta
             # theta_ref_vec[i] = theta_ref
             
             timer = datetime.now()
+
             wait_for_update = True
             
     coordinateStore1.new = False

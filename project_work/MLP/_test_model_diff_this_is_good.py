@@ -58,7 +58,7 @@ api.setAccurate(accurateX, accurateY, module)
 
 # TODO Load the trained model
 model1 = torch_model.MLPNet(2, 24, 16, 8, 2)
-model1.load_state_dict(torch.load('trained_model_this_is_good.pth', weights_only=True))
+model1.load_state_dict(torch.load('trained_model.pth', weights_only=True))
 if test_second:
     model2 = torch_model.MLPNet(2, 24, 2)
     model2.load_state_dict(torch.load('active_model_9.pth'))

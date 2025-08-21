@@ -1,5 +1,5 @@
 import numpy as np
-import camera_tools.camera_tools as ct
+import camera_tools as ct
 import cv2
 import datetime
 from FableAPI.fable_init import api
@@ -68,8 +68,8 @@ class TestClass:
     def __init__(self, num_datapoints):
         self.i = 0
         self.num_datapoints = num_datapoints
-        # self.data = np.zeros( (num_datapoints, 4) )
-        self.data = np.zeros( (num_datapoints, 6) ) # for angle
+        self.data = np.zeros( (num_datapoints, 4) )
+        # self.data = np.zeros( (num_datapoints, 6) ) # for angle
         self.time_of_move = datetime.datetime.now()
         self.timer = 0.5
         self.xy = [None,None]
@@ -103,8 +103,8 @@ class TestClass:
                     tr1 = tmeas1 - self.t[0]
                     tr2 = tmeas2 - self.t[1]
                     
-                    # self.data[self.i,:] = np.array([tr1, tr2, xr, yr])
-                    self.data[self.i,:] = np.array([tr1, tr2, tmeas1, tmeas2, xr, yr]) # for angle
+                    self.data[self.i,:] = np.array([tr1, tr2, xr, yr])
+                    # self.data[self.i,:] = np.array([tr1, tr2, tmeas1, tmeas2, xr, yr]) # for angle
                     self.i += 1
                     # print(self.i,xr,yr)
 
