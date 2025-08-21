@@ -172,13 +172,13 @@ for i in range(n_steps*n_trials):
 
             error       = np.abs(new_theta - theta_ref) # calc error (dist)
             if tau_MLP!= None:
-                C_t         = c.step(tau_MLP, error)
-                error_fb    = error + C_t
+                C_t         = c.step(tau_MLP, theta_ref)
+                # error_fb    = error + C_t
             # MLP
             with torch.no_grad():
-                tmeas1 = api.getPos(0,module)
-                tmeas2 = api.getPos(1,module)
-                outp = model(torch.from_numpy(error_fb).float())
+                # tmeas1 = api.getPos(0,module)
+                # tmeas2 = api.getPos(1,module)
+                outp = model(torch.from_numpy(theta_ref).float())
                 tau_MLP = outp.numpy()
                 print("MLP:",tau_MLP)
             tau = tau_MLP
