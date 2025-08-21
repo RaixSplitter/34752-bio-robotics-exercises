@@ -47,6 +47,9 @@ beta = .00001
 c = AdaptiveFilterCerebellum(Ts, n_inputs, n_outputs, n_bases, beta)
 
 T = 5
+MOVE_STEP = 100
+AF_THRESHHOLD = 50
+
 
 ## Camera + robot initialization
 # Initialize the camera first.. waits for it to detect the green block
@@ -68,6 +71,7 @@ def initialize_robot(module=None):
     if module is None:
         module = moduleids[0]
     print('Found modules: ',moduleids)
+
     api.setPos(0,0, module)
     api.sleep(0.5)
 
@@ -89,9 +93,14 @@ class CoordinateStore:
         if not self.new:
             # x = np.random.randint(150,490) ## Sonnys
             # y = np.random.randint(350,430)
-            x = np.random.randint(380,820) ## Simons
-            y = np.random.randint(250,620)
+            # x = np.random.randint(380,820) ## Simons
+            # y = np.random.randint(250,620)
             
+            x = np.random.randint(235,485) # Markus
+            y = np.random.randint(145,280)
+            
+
+
             self.point = [x,y]
             self.new = True
 
@@ -125,11 +134,26 @@ wait_for_confirm    = False
 active_run          = True
 error               = np.array([0,0])
 
+
 ## Simulation loop
 for i in range(n_steps*n_trials):
     # new_theta           = None
     tau_MLP             = [None,None]
+    move_step_counter = 0
+    p_id = 0 #point id
+    adaptive_filter_toggle = False
     while active_run:
+        move_step_counter += 1
+        if move_step_counter >= MOVE_STEP:
+            p_id += 1 #point id
+            coordinateStore1.new = False
+            wait_for_confirm = False
+            wait_for_update = False
+            move_step_counter = 0
+            if p_id > AF_THRESHHOLD:
+                adaptive_filter_toggle = True
+
+
         frame = ct.capture_image(cam)
         # frame = cv2.flip(frame, 1)
         coordinateStore1.random_point()
@@ -148,22 +172,30 @@ for i in range(n_steps*n_trials):
                 theta_new = None
                 break
         elif wait_for_update: # wait for robot to move to position
-            if (datetime.now()-timer).seconds >= 2:
+            if (datetime.now()-timer).seconds >= 0.1:
                 frame = ct.capture_image(cam)
                 new_theta = ct.locate(frame) # (x, y)
                 if new_theta[0] == None:
                     print("Brick not in view")
                     break
                 # new_theta = (np.array(new_theta) + 750)/1500.
-                error       = (( theta_ref - new_theta)+ 750)/1500. # calc error (dist)
+               
+                dist = theta_ref - new_theta
+                with open("run_log_af_toggle_test.csv", "a") as f:
+                    timestamp = datetime.now().isoformat()
+                    f.write(f"{p_id},{adaptive_filter_toggle},{dist[0]},{dist[1]},{timestamp}\n") # p_id, adaptive_filter_toggle, dist_x, dist_y, timestamp
+
+                error       = (dist+ 750)/1500. # calc error (dist)
+                
                 # print(c.w[0,:])
                 # c.learn(tau_MLP)
                 # print(c.w[0,:])
                 # wait_for_confirm = True
                 wait_for_update = False
-                if np.linalg.norm(error) <= 0.61:
-                    print(error)
-                    break
+                # if np.linalg.norm(error) <= 0.65:
+                #     print(error)
+                #     break
+            
 
         
         elif coordinateStore1.new: # point is available
@@ -180,7 +212,8 @@ for i in range(n_steps*n_trials):
             error       = (( theta_ref - theta)+750)/1500 # calc error (dist)       
             if tau_MLP[0] != None:
                 C_t         = c.step(tau_MLP, error)
-                error    += C_t
+                if adaptive_filter_toggle:
+                    error    += C_t
             # MLP
             with torch.no_grad():
                 # tmeas1 = api.getPos(0,module)
@@ -198,8 +231,12 @@ for i in range(n_steps*n_trials):
             # plant.step(tau)
             t0 = api.getPos(0,module)
             t1 = api.getPos(1,module)
-            api.setPos(t0+tau[0], t1+tau[1], module)
-            
+            print("\nAPI")
+            print("t0,t1",t0,t1)
+            print("tau",tau)
+            print("set_pos",t0+tau[0], t1+tau[1])
+            res = api.setPos(t0+tau[0], t1+tau[1], module)
+            print(res)
             # log
             # theta_vec[i] = plant.theta
             # theta_ref_vec[i] = theta_ref

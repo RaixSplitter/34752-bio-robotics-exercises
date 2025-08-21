@@ -8,7 +8,7 @@ from tqdm import tqdm # progress bar
 
 # Load data
 # data = pickle.load( open( "training_data.p", "rb" ) )
-data = np.loadtxt("data_diff_simons.csv", delimiter=",")
+data = np.loadtxt("data_markus.csv", delimiter=",")
 
 print(data.shape)
 angles  = data[:, :2].T
