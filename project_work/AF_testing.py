@@ -176,7 +176,8 @@ for i in range(n_steps*n_trials):
                 error_fb    = error + C_t
             # MLP
             with torch.no_grad():
-                
+                tmeas1 = api.getPos(0,module)
+                tmeas2 = api.getPos(1,module)
                 outp = model(torch.from_numpy(error_fb).float())
                 tau_MLP = outp.numpy()
                 print("MLP:",tau_MLP)
